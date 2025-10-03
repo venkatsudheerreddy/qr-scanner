@@ -1,13 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>QR Scanner</title>
+  <title>QR Scanner + Upload</title>
   <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: sans-serif; padding: 10px; }
+    #reader { width: 300px; margin-bottom: 20px; }
+    #result { margin-top: 20px; }
+    input[type="file"] { margin-bottom: 10px; }
+  </style>
 </head>
 <body>
-  <h2>Scan your Order QR</h2>
-  <div id="reader" style="width:300px;"></div>
+  <h2>Scan or Upload QR</h2>
+
+  <!-- Camera scanner -->
+  <div id="reader"></div>
+
+  <hr>
+  <!-- Upload QR image -->
+  <label>Upload QR Image:</label>
+  <input type="file" id="qrFile" accept="image/*">
+  <div id="uploadResult"></div>
+
+  <!-- Result -->
   <div id="result"></div>
 
   <script>
@@ -16,36 +32,30 @@
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI';
     const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-    // 2️⃣ QR scan success callback
-    async function onScanSuccess(decodedText) {
-      document.getElementById("result").innerText = "Scanning...";
-
+    // 2️⃣ Function to fetch food details from orderId
+    async function fetchFood(orderId) {
+      document.getElementById("result").innerText = "Fetching food details...";
       try {
-        // Get order
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .select('foodId')
-          .eq('id', decodedText)
+          .eq('id', orderId)
           .single();
-
         if (orderError || !order) {
           document.getElementById("result").innerText = "Order not found!";
           return;
         }
 
-        // Get food details
         const { data: food, error: foodError } = await supabase
           .from('menu')
           .select('*')
           .eq('id', order.foodId)
           .single();
-
         if (foodError || !food) {
           document.getElementById("result").innerText = "Food not found!";
           return;
         }
 
-        // Display food details
         document.getElementById("result").innerHTML = `
           <h3>${food.name}</h3>
           <p>Price: ₹${food.price}</p>
@@ -56,9 +66,35 @@
       }
     }
 
-    // 3️⃣ Initialize QR scanner
+    // 3️⃣ Camera QR scanner
+    function onScanSuccess(decodedText) {
+      html5QrcodeScanner.clear(); // stop scanner
+      fetchFood(decodedText);
+    }
+
     let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
     html5QrcodeScanner.render(onScanSuccess);
+
+    // 4️⃣ Upload QR image
+    const qrFileInput = document.getElementById("qrFile");
+    qrFileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      document.getElementById("uploadResult").innerText = "Decoding image...";
+      const reader = new FileReader();
+      reader.onload = async function() {
+        try {
+          const decodedText = await Html5Qrcode.getCameras() // just to ensure library loaded
+            .then(() => Html5Qrcode.decodeFromImage(file));
+          document.getElementById("uploadResult").innerText = "QR Scanned: " + decodedText;
+          fetchFood(decodedText);
+        } catch (err) {
+          document.getElementById("uploadResult").innerText = "Failed to decode QR image.";
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   </script>
 </body>
 </html>
