@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>QR Order Decoder</title>
+  <meta charset="UTF-8">
+  <title>QR Order Decoder (UUID)</title>
   <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <h2>Upload QR Code</h2>
-  <input type="file" accept="image/*" id="qrInput" />
+  <input type="file" accept="image/*" id="qrInput">
   <button id="decodeBtn">Decode QR</button>
 
   <h3>Result:</h3>
@@ -17,11 +17,9 @@
   <canvas id="canvas" hidden></canvas>
 
   <script>
-    // Initialize Supabase client early
     const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
-    const SUPABASE_ANON_KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const fileInput = document.getElementById("qrInput");
     const decodeBtn = document.getElementById("decodeBtn");
@@ -30,7 +28,7 @@
     const resultDiv = document.getElementById("result");
 
     decodeBtn.addEventListener("click", async () => {
-      if (fileInput.files.length === 0) {
+      if (!fileInput.files.length) {
         alert("Please upload a QR image first!");
         return;
       }
@@ -48,46 +46,18 @@
         const code = jsQR(imageData.data, imageData.width, imageData.height);
 
         if (code) {
-          let qrText = code.data.trim();
-          let orderId = null;
+          const orderUUID = code.data.trim();  // UUID from QR
+          resultDiv.innerHTML = `<p>QR Decoded: Order ID = ${orderUUID}</p>`;
 
-          // Case 1: Just a number (parse integer)
-          if (/^\d+$/.test(qrText)) {
-            orderId = parseInt(qrText, 10);
-          }
-          // Case 2: URL with id=123 param
-          else if (qrText.includes("id=")) {
-            const urlParams = new URLSearchParams(qrText.split("?")[1]);
-            orderId = urlParams.get("id");
-          }
-          // Case 3: URL with last path segment as id
-          else if (qrText.includes("/")) {
-            orderId = qrText.split("/").pop();
-          }
-
-          if (!orderId) {
-            resultDiv.innerHTML = `<p style="color:red;">Could not extract order ID from QR: ${qrText}</p>`;
-            return;
-          }
-
-          resultDiv.innerHTML = `<p>QR Decoded: Order ID = ${orderId}</p>`;
-
-          // Fetch order and menu with single join query
+          // Fetch order + menu details
           const { data: order, error } = await supabase
             .from("orders")
-            .select(
-              `id, food_id, timestamp, menu:food_id(id, name, price, image)`
-            )
-            .eq("id", orderId)
+            .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
+            .eq("id", orderUUID)
             .single();
 
-          if (error || !order) {
-            resultDiv.innerHTML += `<p style="color:red;">Error fetching order: ${error?.message || "No data found"} </p>`;
-            return;
-          }
-
-          if (!order.menu) {
-            resultDiv.innerHTML += `<p style="color:red;">Related menu item not found for this order.</p>`;
+          if (error) {
+            resultDiv.innerHTML += `<p style="color:red;">Error: ${error.message}</p>`;
             return;
           }
 
@@ -97,16 +67,12 @@
             <p>Timestamp: ${order.timestamp}</p>
             <h4>Food Details</h4>
             <p>Name: ${order.menu.name}</p>
-            <p>Price: ₹${order.menu.price}</p>
-            <img src="${order.menu.image}" width="120" alt="Food Image"/>
+            <p>Price: ${order.menu.price}</p>
+            <img src="${order.menu.image}" width="120">
           `;
         } else {
-          resultDiv.innerHTML = "<p style='color:red;'>No QR code found in the image.</p>";
+          resultDiv.innerHTML = "<p style='color:red;'>No QR code found.</p>";
         }
-      };
-
-      img.onerror = () => {
-        alert("Failed to load the image. Please try a different QR image.");
       };
     });
   </script>
