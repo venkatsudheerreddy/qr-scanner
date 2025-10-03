@@ -11,50 +11,7 @@
   const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
   // ...rest of your code...
-</script>
-  <style>
-    body { font-family: sans-serif; padding: 10px; background: #f5f5f5; }
-    #reader { width: 100%; max-width: 400px; margin-bottom: 20px; }
-    #resultCard {
-      display: none;
-      background: white;
-      padding: 15px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      max-width: 400px;
-    }
-    #resultCard img { width: 100%; border-radius: 10px; margin-bottom: 10px; }
-    #buttons { margin-top: 10px; }
-    input[type="file"] { margin-bottom: 10px; }
-    button { padding: 10px 15px; margin-top: 10px; border: none; border-radius: 5px; background: #2196F3; color: white; cursor: pointer; }
-  </style>
-</head>
-<body>
-  <h2>Scan or Upload QR</h2>
-
-  <!-- Camera scanner -->
-  <div id="reader"></div>
-
-  <hr>
-
-  <!-- Upload QR image -->
-  <label>Upload QR Image:</label>
-  <input type="file" id="qrFile" accept="image/*">
-  <div id="uploadResult"></div>
-
-  <!-- Food Details Card -->
-  <div id="resultCard">
-    <img id="foodImage" src="" alt="Food Image">
-    <h3 id="foodName"></h3>
-    <p id="foodPrice"></p>
-    <div id="buttons">
-      <button id="backScanBtn">Back to Scan</button>
-    </div>
-  </div>
-
-  <script>
-   
-
+    
     const readerDiv = document.getElementById("reader");
     const resultCard = document.getElementById("resultCard");
 
@@ -142,7 +99,49 @@
       readerDiv.style.display = "block";
       html5QrcodeScanner.render(onScanSuccess);
     });
-  </script>
+</script>
+  <style>
+    body { font-family: sans-serif; padding: 10px; background: #f5f5f5; }
+    #reader { width: 100%; max-width: 400px; margin-bottom: 20px; }
+    #resultCard {
+      display: none;
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      max-width: 400px;
+    }
+    #resultCard img { width: 100%; border-radius: 10px; margin-bottom: 10px; }
+    #buttons { margin-top: 10px; }
+    input[type="file"] { margin-bottom: 10px; }
+    button { padding: 10px 15px; margin-top: 10px; border: none; border-radius: 5px; background: #2196F3; color: white; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>Scan or Upload QR</h2>
+
+  <!-- Camera scanner -->
+  <div id="reader"></div>
+
+  <hr>
+
+  <!-- Upload QR image -->
+  <label>Upload QR Image:</label>
+  <input type="file" id="qrFile" accept="image/*">
+  <div id="uploadResult"></div>
+
+  <!-- Food Details Card -->
+  <div id="resultCard">
+    <img id="foodImage" src="" alt="Food Image">
+    <h3 id="foodName"></h3>
+    <p id="foodPrice"></p>
+    <div id="buttons">
+      <button id="backScanBtn">Back to Scan</button>
+    </div>
+  </div>
+
+
 </body>
 </html>
+
 
