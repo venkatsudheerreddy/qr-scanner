@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Auto QR Decoder</title>
+  <title>QR Decoder with Scan & Upload</title>
   <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <h2>Upload QR Code</h2>
+  <h2>Scan or Upload QR Code</h2>
+
+  <!-- Scan QR via camera -->
+  <video id="video" width="300" height="300" style="border:1px solid black"></video>
+
+  <br><br>
+  <!-- Upload QR Image -->
   <input type="file" accept="image/*" id="qrInput">
 
   <h3>Result:</h3>
@@ -20,56 +26,81 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    const video = document.getElementById("video");
     const fileInput = document.getElementById("qrInput");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const resultDiv = document.getElementById("result");
 
-    fileInput.addEventListener("change", async () => {
+    // Decode QR from image data
+    async function decodeQRCode(imageData) {
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if (code) {
+        const orderUUID = code.data.trim();
+        resultDiv.innerHTML = `<p>QR Decoded: Order ID = ${orderUUID}</p>`;
+
+        const { data: order, error } = await supabase
+          .from("orders")
+          .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
+          .eq("id", orderUUID)
+          .single();
+
+        if (error) {
+          resultDiv.innerHTML += `<p style="color:red;">Error: ${error.message}</p>`;
+          return;
+        }
+
+        resultDiv.innerHTML += `
+          <h4>Order Details</h4>
+          <p>Order ID: ${order.id}</p>
+          <p>Timestamp: ${order.timestamp}</p>
+          <h4>Food Details</h4>
+          <p>Name: ${order.menu.name}</p>
+          <p>Price: ${order.menu.price}</p>
+          <img src="${order.menu.image}" width="120">
+        `;
+      }
+    }
+
+    // --- Upload QR image ---
+    fileInput.addEventListener("change", () => {
       if (!fileInput.files.length) return;
-
-      const file = fileInput.files[0];
       const img = new Image();
-      img.src = URL.createObjectURL(file);
-
-      img.onload = async () => {
+      img.src = URL.createObjectURL(fileInput.files[0]);
+      img.onload = () => {
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0, img.width, img.height);
         const imageData = ctx.getImageData(0, 0, img.width, img.height);
-
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-        if (code) {
-          const orderUUID = code.data.trim(); // QR contains order UUID
-          resultDiv.innerHTML = `<p>QR Decoded: Order ID = ${orderUUID}</p>`;
-
-          // Fetch order + menu details
-          const { data: order, error } = await supabase
-            .from("orders")
-            .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
-            .eq("id", orderUUID)
-            .single();
-
-          if (error) {
-            resultDiv.innerHTML += `<p style="color:red;">Error: ${error.message}</p>`;
-            return;
-          }
-
-          resultDiv.innerHTML += `
-            <h4>Order Details</h4>
-            <p>Order ID: ${order.id}</p>
-            <p>Timestamp: ${order.timestamp}</p>
-            <h4>Food Details</h4>
-            <p>Name: ${order.menu.name}</p>
-            <p>Price: ${order.menu.price}</p>
-            <img src="${order.menu.image}" width="120">
-          `;
-        } else {
-          resultDiv.innerHTML = "<p style='color:red;'>No QR code found.</p>";
-        }
+        decodeQRCode(imageData);
       };
     });
+
+    // --- Scan QR via camera ---
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true); // required for iOS
+        video.play();
+        requestAnimationFrame(scanVideo);
+      })
+      .catch(err => {
+        console.error("Camera error:", err);
+      });
+
+    function scanVideo() {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code) {
+          decodeQRCode(imageData);
+        }
+      }
+      requestAnimationFrame(scanVideo);
+    }
   </script>
 </body>
 </html>
