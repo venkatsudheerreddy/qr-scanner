@@ -2,14 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>QR Order Decoder (UUID)</title>
+  <title>Auto QR Decoder</title>
   <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <h2>Upload QR Code</h2>
   <input type="file" accept="image/*" id="qrInput">
-  <button id="decodeBtn">Decode QR</button>
 
   <h3>Result:</h3>
   <div id="result"></div>
@@ -17,21 +16,17 @@
   <canvas id="canvas" hidden></canvas>
 
   <script>
-    const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
+        const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const fileInput = document.getElementById("qrInput");
-    const decodeBtn = document.getElementById("decodeBtn");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const resultDiv = document.getElementById("result");
 
-    decodeBtn.addEventListener("click", async () => {
-      if (!fileInput.files.length) {
-        alert("Please upload a QR image first!");
-        return;
-      }
+    fileInput.addEventListener("change", async () => {
+      if (!fileInput.files.length) return;
 
       const file = fileInput.files[0];
       const img = new Image();
@@ -46,7 +41,7 @@
         const code = jsQR(imageData.data, imageData.width, imageData.height);
 
         if (code) {
-          const orderUUID = code.data.trim();  // UUID from QR
+          const orderUUID = code.data.trim(); // QR contains order UUID
           resultDiv.innerHTML = `<p>QR Decoded: Order ID = ${orderUUID}</p>`;
 
           // Fetch order + menu details
