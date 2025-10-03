@@ -1,148 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>QR Scanner + Upload</title>
-  <script src="https://unpkg.com/html5-qrcode@2.3.4/minified/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-  // Move this to the top, before all other usage of supabase:
-  const supabaseUrl = 'https://ngvoepsrgroxozyjvgyv.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI';
-  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
-  // ...rest of your code...
-    
-    const readerDiv = document.getElementById("reader");
-    const resultCard = document.getElementById("resultCard");
-
-    // Fetch food details from orderId
-    async function fetchFood(orderId) {
-      try {
-        alert('Fetching food for order id: ' + orderId);
-        // Get the order
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .select('foodId')
-          .eq('id', orderId)
-          .single();
-        if (orderError || !order) {
-          alert("Order not found! " + (orderError ? orderError.message : ""));
-          return;
-        }
-
-        console.log("Order fetched:", order);
-
-        // Get the menu item
-        const { data: food, error: foodError } = await supabase
-          .from('menu')
-          .select('*')
-          .eq('id', order.foodId)
-          .single();
-        if (foodError || !food) {
-          alert("Food not found! " + (foodError ? foodError.message : ""));
-          return;
-        }
-
-        console.log("Food fetched:", food);
-
-        // Display food details
-        document.getElementById("foodImage").src = food.image || "";
-        document.getElementById("foodName").innerText = food.name;
-        document.getElementById("foodPrice").innerText = "Price: ₹" + food.price;
-
-        resultCard.style.display = "block";
-        readerDiv.style.display = "none";
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
-    }
-
-    // Camera scanning
-    async function onScanSuccess(decodedText) {
-      alert('Scan success: ' + decodedText);
-      await html5QrcodeScanner.clear();
-      fetchFood(decodedText);
-    }
-
-    let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-    html5QrcodeScanner.render(onScanSuccess);
-
-    // Upload QR image
-    const qrFileInput = document.getElementById("qrFile");
-    qrFileInput.addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      alert('File selected: ' + file.name); // Debug alert on file selected
-      document.getElementById("uploadResult").innerText = "Decoding image...";
-      const html5QrCode = new Html5Qrcode("reader");
-
-      html5QrCode.scanFileV2(file, true)
-        .then(decodedResults => {
-          console.log("Decoded results: ", decodedResults);
-          alert('Decoded results: ' + JSON.stringify(decodedResults));
-
-          const decodedText = Array.isArray(decodedResults) ? decodedResults[0]?.decodedText : decodedResults.decodedText;
-          document.getElementById("uploadResult").innerText = "QR Scanned: " + decodedText;
-          fetchFood(decodedText);
-        })
-        .catch(err => {
-          console.error(err);
-          alert("Failed to decode QR image: " + err.message);
-          document.getElementById("uploadResult").innerText = "Failed to decode QR image.";
-        });
-    });
-
-    // Back to scan button
-    document.getElementById("backScanBtn").addEventListener("click", () => {
-      resultCard.style.display = "none";
-      readerDiv.style.display = "block";
-      html5QrcodeScanner.render(onScanSuccess);
-    });
-</script>
-  <style>
-    body { font-family: sans-serif; padding: 10px; background: #f5f5f5; }
-    #reader { width: 100%; max-width: 400px; margin-bottom: 20px; }
-    #resultCard {
-      display: none;
-      background: white;
-      padding: 15px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      max-width: 400px;
-    }
-    #resultCard img { width: 100%; border-radius: 10px; margin-bottom: 10px; }
-    #buttons { margin-top: 10px; }
-    input[type="file"] { margin-bottom: 10px; }
-    button { padding: 10px 15px; margin-top: 10px; border: none; border-radius: 5px; background: #2196F3; color: white; cursor: pointer; }
-  </style>
+  <meta charset="UTF-8" />
+  <title>QR Order Decoder</title>
+  <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <h2>Scan or Upload QR</h2>
+  <h2>Upload QR Code</h2>
+  <input type="file" accept="image/*" id="qrInput" />
+  <button id="decodeBtn">Decode QR</button>
 
-  <!-- Camera scanner -->
-  <div id="reader"></div>
+  <h3>Result:</h3>
+  <div id="result"></div>
 
-  <hr>
+  <canvas id="canvas" hidden></canvas>
 
-  <!-- Upload QR image -->
-  <label>Upload QR Image:</label>
-  <input type="file" id="qrFile" accept="image/*">
-  <div id="uploadResult"></div>
+  <script>
+    // Initialize Supabase client early
+    const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  <!-- Food Details Card -->
-  <div id="resultCard">
-    <img id="foodImage" src="" alt="Food Image">
-    <h3 id="foodName"></h3>
-    <p id="foodPrice"></p>
-    <div id="buttons">
-      <button id="backScanBtn">Back to Scan</button>
-    </div>
-  </div>
+    const fileInput = document.getElementById("qrInput");
+    const decodeBtn = document.getElementById("decodeBtn");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const resultDiv = document.getElementById("result");
 
+    decodeBtn.addEventListener("click", async () => {
+      if (fileInput.files.length === 0) {
+        alert("Please upload a QR image first!");
+        return;
+      }
 
+      const file = fileInput.files[0];
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+
+      img.onload = async () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0, img.width, img.height);
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (code) {
+          let qrText = code.data.trim();
+          let orderId = null;
+
+          // Case 1: Just a number (parse integer)
+          if (/^\d+$/.test(qrText)) {
+            orderId = parseInt(qrText, 10);
+          }
+          // Case 2: URL with id=123 param
+          else if (qrText.includes("id=")) {
+            const urlParams = new URLSearchParams(qrText.split("?")[1]);
+            orderId = urlParams.get("id");
+          }
+          // Case 3: URL with last path segment as id
+          else if (qrText.includes("/")) {
+            orderId = qrText.split("/").pop();
+          }
+
+          if (!orderId) {
+            resultDiv.innerHTML = `<p style="color:red;">Could not extract order ID from QR: ${qrText}</p>`;
+            return;
+          }
+
+          resultDiv.innerHTML = `<p>QR Decoded: Order ID = ${orderId}</p>`;
+
+          // Fetch order and menu with single join query
+          const { data: order, error } = await supabase
+            .from("orders")
+            .select(
+              `id, food_id, timestamp, menu:food_id(id, name, price, image)`
+            )
+            .eq("id", orderId)
+            .single();
+
+          if (error || !order) {
+            resultDiv.innerHTML += `<p style="color:red;">Error fetching order: ${error?.message || "No data found"} </p>`;
+            return;
+          }
+
+          if (!order.menu) {
+            resultDiv.innerHTML += `<p style="color:red;">Related menu item not found for this order.</p>`;
+            return;
+          }
+
+          resultDiv.innerHTML += `
+            <h4>Order Details</h4>
+            <p>Order ID: ${order.id}</p>
+            <p>Timestamp: ${order.timestamp}</p>
+            <h4>Food Details</h4>
+            <p>Name: ${order.menu.name}</p>
+            <p>Price: ₹${order.menu.price}</p>
+            <img src="${order.menu.image}" width="120" alt="Food Image"/>
+          `;
+        } else {
+          resultDiv.innerHTML = "<p style='color:red;'>No QR code found in the image.</p>";
+        }
+      };
+
+      img.onerror = () => {
+        alert("Failed to load the image. Please try a different QR image.");
+      };
+    });
+  </script>
 </body>
 </html>
-
-
-
