@@ -56,6 +56,7 @@
     // Fetch food details from orderId
     async function fetchFood(orderId) {
       try {
+        alert('Fetching food for order id: ' + orderId);
         // Get the order
         const { data: order, error: orderError } = await supabase
           .from('orders')
@@ -63,9 +64,11 @@
           .eq('id', orderId)
           .single();
         if (orderError || !order) {
-          alert("Order not found!");
+          alert("Order not found! " + (orderError ? orderError.message : ""));
           return;
         }
+
+        console.log("Order fetched:", order);
 
         // Get the menu item
         const { data: food, error: foodError } = await supabase
@@ -74,9 +77,11 @@
           .eq('id', order.foodId)
           .single();
         if (foodError || !food) {
-          alert("Food not found!");
+          alert("Food not found! " + (foodError ? foodError.message : ""));
           return;
         }
+
+        console.log("Food fetched:", food);
 
         // Display food details
         document.getElementById("foodImage").src = food.image || "";
@@ -92,6 +97,7 @@
 
     // Camera scanning
     async function onScanSuccess(decodedText) {
+      alert('Scan success: ' + decodedText);
       await html5QrcodeScanner.clear();
       fetchFood(decodedText);
     }
@@ -102,26 +108,28 @@
     // Upload QR image
     const qrFileInput = document.getElementById("qrFile");
     qrFileInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  document.getElementById("uploadResult").innerText = "Decoding image...";
-  const html5QrCode = new Html5Qrcode("reader");
+      const file = e.target.files[0];
+      if (!file) return;
 
-  html5QrCode.scanFileV2(file, true)
-    .then(decodedResults => {
-      console.log("Decoded: ", decodedResults);
-      alert(JSON.stringify(decodedResults));
-      const decodedText = Array.isArray(decodedResults) ? decodedResults[0]?.decodedText : decodedResults.decodedText;
-      document.getElementById("uploadResult").innerText = "QR Scanned: " + decodedText;
-      fetchFood(decodedText);
-    })
-    .catch(err => {
-      console.error(err);
-      document.getElementById("uploadResult").innerText = "Failed to decode QR image.";
-      alert("Failed: " + err.message);
+      alert('File selected: ' + file.name); // Debug alert on file selected
+      document.getElementById("uploadResult").innerText = "Decoding image...";
+      const html5QrCode = new Html5Qrcode("reader");
+
+      html5QrCode.scanFileV2(file, true)
+        .then(decodedResults => {
+          console.log("Decoded results: ", decodedResults);
+          alert('Decoded results: ' + JSON.stringify(decodedResults));
+
+          const decodedText = Array.isArray(decodedResults) ? decodedResults[0]?.decodedText : decodedResults.decodedText;
+          document.getElementById("uploadResult").innerText = "QR Scanned: " + decodedText;
+          fetchFood(decodedText);
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Failed to decode QR image: " + err.message);
+          document.getElementById("uploadResult").innerText = "Failed to decode QR image.";
+        });
     });
-});
-);
 
     // Back to scan button
     document.getElementById("backScanBtn").addEventListener("click", () => {
@@ -132,4 +140,3 @@
   </script>
 </body>
 </html>
-
