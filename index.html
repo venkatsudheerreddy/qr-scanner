@@ -3,22 +3,60 @@
 <head>
   <title>QR Scanner</title>
   <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <h2>Scan your Order QR</h2>
-  <div id="reader" style="width:300px"></div>
+  <div id="reader" style="width:300px;"></div>
   <div id="result"></div>
 
   <script>
-    function onScanSuccess(decodedText) {
-      document.getElementById("result").innerText = "Scanned Order: " + decodedText;
-      
-      // Send scanned order id back to FlutterFlow
-      if (window.parent) {
-        window.parent.postMessage({ type: "QR_SCANNED", orderId: decodedText }, "*");
+    // 1️⃣ Initialize Supabase
+    const supabaseUrl = 'https://ngvoepsrgroxozyjvgyv.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    // 2️⃣ QR scan success callback
+    async function onScanSuccess(decodedText) {
+      document.getElementById("result").innerText = "Scanning...";
+
+      try {
+        // Get order
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .select('foodId')
+          .eq('id', decodedText)
+          .single();
+
+        if (orderError || !order) {
+          document.getElementById("result").innerText = "Order not found!";
+          return;
+        }
+
+        // Get food details
+        const { data: food, error: foodError } = await supabase
+          .from('menu')
+          .select('*')
+          .eq('id', order.foodId)
+          .single();
+
+        if (foodError || !food) {
+          document.getElementById("result").innerText = "Food not found!";
+          return;
+        }
+
+        // Display food details
+        document.getElementById("result").innerHTML = `
+          <h3>${food.name}</h3>
+          <p>Price: ₹${food.price}</p>
+          <p>${food.description}</p>
+        `;
+      } catch (err) {
+        document.getElementById("result").innerText = "Error: " + err.message;
       }
     }
 
+    // 3️⃣ Initialize QR scanner
     let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
     html5QrcodeScanner.render(onScanSuccess);
   </script>
