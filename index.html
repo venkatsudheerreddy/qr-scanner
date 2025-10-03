@@ -4,6 +4,14 @@
   <title>QR Scanner + Upload</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.4/minified/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+  // Move this to the top, before all other usage of supabase:
+  const supabaseUrl = 'https://ngvoepsrgroxozyjvgyv.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI';
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+  // ...rest of your code...
+</script>
   <style>
     body { font-family: sans-serif; padding: 10px; background: #f5f5f5; }
     #reader { width: 100%; max-width: 400px; margin-bottom: 20px; }
@@ -45,10 +53,7 @@
   </div>
 
   <script>
-    // Initialize Supabase
-    const supabaseUrl = 'https://ngvoepsrgroxozyjvgyv.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+   
 
     const readerDiv = document.getElementById("reader");
     const resultCard = document.getElementById("resultCard");
@@ -140,3 +145,4 @@
   </script>
 </body>
 </html>
+
