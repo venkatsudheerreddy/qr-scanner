@@ -39,14 +39,13 @@
     <img id="foodImage" src="" alt="Food Image">
     <h3 id="foodName"></h3>
     <p id="foodPrice"></p>
-    <p id="foodDescription"></p>
     <div id="buttons">
       <button id="backScanBtn">Back to Scan</button>
     </div>
   </div>
 
   <script>
-    // 1️⃣ Initialize Supabase
+    // Initialize Supabase
     const supabaseUrl = 'https://ngvoepsrgroxozyjvgyv.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI';
     const supabase = supabase.createClient(supabaseUrl, supabaseKey);
@@ -54,9 +53,10 @@
     const readerDiv = document.getElementById("reader");
     const resultCard = document.getElementById("resultCard");
 
-    // 2️⃣ Function to fetch food details from orderId
+    // Fetch food details from orderId
     async function fetchFood(orderId) {
       try {
+        // Get the order
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .select('foodId')
@@ -67,6 +67,7 @@
           return;
         }
 
+        // Get the menu item
         const { data: food, error: foodError } = await supabase
           .from('menu')
           .select('*')
@@ -77,13 +78,11 @@
           return;
         }
 
-        // Display food
-        document.getElementById("foodImage").src = food.image_url || ""; // make sure your menu table has image_url
+        // Display food details
+        document.getElementById("foodImage").src = food.image || "";
         document.getElementById("foodName").innerText = food.name;
         document.getElementById("foodPrice").innerText = "Price: ₹" + food.price;
-        document.getElementById("foodDescription").innerText = food.description;
 
-        // Show card & hide scanner
         resultCard.style.display = "block";
         readerDiv.style.display = "none";
       } catch (err) {
@@ -91,24 +90,29 @@
       }
     }
 
-    // 3️⃣ Camera QR scanner
+    // Camera scanning
     async function onScanSuccess(decodedText) {
-      await html5QrcodeScanner.clear(); // stop scanner
+      await html5QrcodeScanner.clear();
       fetchFood(decodedText);
     }
 
     let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
     html5QrcodeScanner.render(onScanSuccess);
 
-    // 4️⃣ Upload QR image
+    // Upload QR image
     const qrFileInput = document.getElementById("qrFile");
     qrFileInput.addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       document.getElementById("uploadResult").innerText = "Decoding image...";
-      Html5Qrcode.scanFileV2(file, true)
-        .then(decodedText => {
+
+      const html5QrCode = new Html5Qrcode("reader");
+
+      html5QrCode.scanFileV2(file, true)
+        .then(decodedResults => {
+          // scanFileV2 returns array
+          const decodedText = Array.isArray(decodedResults) ? decodedResults[0].decodedText : decodedResults.decodedText;
           document.getElementById("uploadResult").innerText = "QR Scanned: " + decodedText;
           fetchFood(decodedText);
         })
@@ -118,7 +122,7 @@
         });
     });
 
-    // 5️⃣ Back to Scan button
+    // Back to scan button
     document.getElementById("backScanBtn").addEventListener("click", () => {
       resultCard.style.display = "none";
       readerDiv.style.display = "block";
