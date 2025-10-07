@@ -2,42 +2,98 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>QR Decoder with Scan & Upload</title>
+  <title>Food item</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Lexend', sans-serif;
+      background-color: #faf4ff;
+      color: #1d1b20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .card {
+      background: white;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .food-img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .food-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 16px 0;
+    }
+
+    .upload-btn {
+      background-color: #6b4eb8;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background-color 0.3s ease;
+    }
+
+    .upload-btn:hover {
+      background-color: #5a3fa5;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    #canvas {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-  <h2>Scan or Upload QR Code</h2>
+  <div class="card" id="foodCard">
+    <img class="food-img" id="foodImage" src="https://via.placeholder.com/400x300?text=No+Image" alt="Food">
+    <div class="food-name" id="foodName">Upload QR to view item</div>
+  </div>
 
-  <!-- Scan QR via camera -->
-  <video id="video" width="300" height="300" style="border:1px solid black"></video>
-
-  <br><br>
-  <!-- Upload QR Image -->
+  <button class="upload-btn" id="uploadBtn">Upload QR Image</button>
   <input type="file" accept="image/*" id="qrInput">
-
-  <h3>Result:</h3>
-  <div id="result"></div>
-
-  <canvas id="canvas" hidden></canvas>
+  <canvas id="canvas"></canvas>
 
   <script>
-        const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
+    const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const video = document.getElementById("video");
+    const uploadBtn = document.getElementById("uploadBtn");
     const fileInput = document.getElementById("qrInput");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
-    const resultDiv = document.getElementById("result");
+    const foodName = document.getElementById("foodName");
+    const foodImage = document.getElementById("foodImage");
 
-    // Decode QR from image data
+    uploadBtn.addEventListener("click", () => fileInput.click());
+
     async function decodeQRCode(imageData) {
       const code = jsQR(imageData.data, imageData.width, imageData.height);
       if (code) {
         const orderUUID = code.data.trim();
-        resultDiv.innerHTML = `<p>QR Decoded: Order ID = ${orderUUID}</p>`;
 
         const { data: order, error } = await supabase
           .from("orders")
@@ -46,23 +102,20 @@
           .single();
 
         if (error) {
-          resultDiv.innerHTML += `<p style="color:red;">Error: ${error.message}</p>`;
+          foodName.textContent = "Invalid QR or not found";
+          foodImage.src = "https://via.placeholder.com/400x300?text=Error";
+          console.error(error);
           return;
         }
 
-        resultDiv.innerHTML += `
-          <h4>Order Details</h4>
-          <p>Order ID: ${order.id}</p>
-          <p>Timestamp: ${order.timestamp}</p>
-          <h4>Food Details</h4>
-          <p>Name: ${order.menu.name}</p>
-          <p>Price: ${order.menu.price}</p>
-          <img src="${order.menu.image}" width="120">
-        `;
+        foodName.textContent = order.menu.name;
+        foodImage.src = order.menu.image;
+      } else {
+        foodName.textContent = "Could not decode QR";
+        foodImage.src = "https://via.placeholder.com/400x300?text=Invalid+QR";
       }
     }
 
-    // --- Upload QR image ---
     fileInput.addEventListener("change", () => {
       if (!fileInput.files.length) return;
       const img = new Image();
@@ -70,37 +123,11 @@
       img.onload = () => {
         canvas.width = img.width;
         canvas.height = img.height;
-        ctx.drawImage(img, 0, 0, img.width, img.height);
+        ctx.drawImage(img, 0, 0);
         const imageData = ctx.getImageData(0, 0, img.width, img.height);
         decodeQRCode(imageData);
       };
     });
-
-    // --- Scan QR via camera ---
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => {
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true); // required for iOS
-        video.play();
-        requestAnimationFrame(scanVideo);
-      })
-      .catch(err => {
-        console.error("Camera error:", err);
-      });
-
-    function scanVideo() {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
-        if (code) {
-          decodeQRCode(imageData);
-        }
-      }
-      requestAnimationFrame(scanVideo);
-    }
   </script>
 </body>
 </html>
