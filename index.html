@@ -96,7 +96,8 @@
   const orderUUID = code.data.trim();
 
   // Send the Order ID to FlutterFlow
-  window.parent.postMessage({ type: "scannedOrderId", orderId: orderUUID }, "*");
+  window.parent.postMessage(JSON.stringify({ scannedOrderId: orderUUID }), "*");
+
 
   // Existing code
   const { data: order, error } = await supabase
@@ -136,6 +137,7 @@
   </script>
 </body>
 </html>
+
 
 
 
