@@ -93,27 +93,29 @@
     async function decodeQRCode(imageData) {
       const code = jsQR(imageData.data, imageData.width, imageData.height);
       if (code) {
-        const orderUUID = code.data.trim();
+  const orderUUID = code.data.trim();
 
-        // Send the order UUID to Flutter
-  window.flutter_inappwebview?.callHandler('onOrderScanned', orderUUID);
+  // Send the Order ID to FlutterFlow
+  window.parent.postMessage({ type: "orderDecoded", orderId: orderUUID }, "*");
 
-        const { data: order, error } = await supabase
-          .from("orders")
-          .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
-          .eq("id", orderUUID)
-          .single();
+  // Existing code
+  const { data: order, error } = await supabase
+    .from("orders")
+    .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
+    .eq("id", orderUUID)
+    .single();
 
-        if (error) {
-          foodName.textContent = "Invalid QR or not found";
-          foodImage.src = "https://via.placeholder.com/400x300?text=Error";
-          console.error(error);
-          return;
-        }
+  if (error) {
+    foodName.textContent = "Invalid QR or not found";
+    foodImage.src = "https://via.placeholder.com/400x300?text=Error";
+    console.error(error);
+    return;
+  }
 
-        foodName.textContent = order.menu.name;
-        foodImage.src = order.menu.image;
-      } else {
+  foodName.textContent = order.menu.name;
+  foodImage.src = order.menu.image;
+}
+ else {
         foodName.textContent = "Could not decode QR";
         foodImage.src = "https://via.placeholder.com/400x300?text=Invalid+QR";
       }
@@ -134,4 +136,5 @@
   </script>
 </body>
 </html>
+
 
