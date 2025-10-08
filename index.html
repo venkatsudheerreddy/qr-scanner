@@ -95,6 +95,9 @@
       if (code) {
         const orderUUID = code.data.trim();
 
+        // Send the order UUID to Flutter
+  window.flutter_inappwebview?.callHandler('onOrderScanned', orderUUID);
+
         const { data: order, error } = await supabase
           .from("orders")
           .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
@@ -131,3 +134,4 @@
   </script>
 </body>
 </html>
+
