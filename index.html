@@ -115,6 +115,12 @@
 
   foodName.textContent = order.menu.name;
   foodImage.src = order.menu.image;
+        // Update order status to 'scanned'
+await supabase
+  .from("orders")
+  .update({ status: "scanned" })
+  .eq("id", orderUUID);
+
 }
  else {
         foodName.textContent = "Could not decode QR";
@@ -137,6 +143,7 @@
   </script>
 </body>
 </html>
+
 
 
 
