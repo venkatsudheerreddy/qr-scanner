@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Food item</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -27,6 +27,7 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       overflow: hidden;
       text-align: center;
+      padding-bottom: 16px;
     }
 
     .food-img {
@@ -41,7 +42,7 @@
       margin: 16px 0;
     }
 
-    .upload-btn {
+    .upload-btn, .cancel-btn {
       background-color: #6b4eb8;
       color: white;
       border: none;
@@ -49,12 +50,17 @@
       padding: 12px 24px;
       font-size: 16px;
       cursor: pointer;
-      margin-top: 20px;
+      margin-top: 12px;
       transition: background-color 0.3s ease;
     }
 
-    .upload-btn:hover {
+    .upload-btn:hover, .cancel-btn:hover {
       background-color: #5a3fa5;
+    }
+
+    .cancel-btn {
+      background-color: #d9534f;
+      display: none;
     }
 
     input[type="file"] {
@@ -73,6 +79,8 @@
   </div>
 
   <button class="upload-btn" id="uploadBtn">Upload QR Image</button>
+  <button class="cancel-btn" id="cancelBtn">Cancel Order</button>
+
   <input type="file" accept="image/*" id="qrInput">
   <canvas id="canvas"></canvas>
 
@@ -82,51 +90,78 @@
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const uploadBtn = document.getElementById("uploadBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
     const fileInput = document.getElementById("qrInput");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     const foodName = document.getElementById("foodName");
     const foodImage = document.getElementById("foodImage");
 
+    let currentOrderId = null;
+
     uploadBtn.addEventListener("click", () => fileInput.click());
 
     async function decodeQRCode(imageData) {
       const code = jsQR(imageData.data, imageData.width, imageData.height);
-      if (code) {
-  const orderUUID = code.data.trim();
-
-  // Send the Order ID to FlutterFlow
-  window.parent.postMessage(JSON.stringify({ scannedOrderId: orderUUID }), "*");
-
-
-  // Existing code
-  const { data: order, error } = await supabase
-    .from("orders")
-    .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
-    .eq("id", orderUUID)
-    .single();
-
-  if (error) {
-    foodName.textContent = "Invalid QR or not found";
-    foodImage.src = "https://via.placeholder.com/400x300?text=Error";
-    console.error(error);
-    return;
-  }
-
-  foodName.textContent = order.menu.name;
-  foodImage.src = order.menu.image;
-        // Update order status to 'scanned'
-await supabase
-  .from("orders")
-  .update({ status: "scanned" })
-  .eq("id", orderUUID);
-
-}
- else {
+      if (!code) {
         foodName.textContent = "Could not decode QR";
         foodImage.src = "https://via.placeholder.com/400x300?text=Invalid+QR";
+        return;
       }
+
+      const orderUUID = code.data.trim();
+      currentOrderId = orderUUID;
+
+      // 🔹 Notify FlutterFlow via URL change
+      window.location.href = "flutterflow://scan?orderId=" + orderUUID;
+
+      // 🔹 Fetch order details from Supabase
+      const { data: order, error } = await supabase
+        .from("orders")
+        .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
+        .eq("id", orderUUID)
+        .single();
+
+      if (error || !order) {
+        foodName.textContent = "Invalid QR or not found";
+        foodImage.src = "https://via.placeholder.com/400x300?text=Error";
+        console.error(error);
+        return;
+      }
+
+      // Show food details
+      foodName.textContent = order.menu.name;
+      foodImage.src = order.menu.image;
+
+      // 🔹 Update order status to 'scanned'
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({ status: "scanned" })
+        .eq("id", orderUUID);
+
+      if (updateError) console.error(updateError);
+
+      // Show cancel button
+      cancelBtn.style.display = "inline-block";
     }
+
+    // Handle Cancel button click
+    cancelBtn.addEventListener("click", async () => {
+      if (!currentOrderId) return alert("No order scanned yet.");
+      const { error } = await supabase
+        .from("orders")
+        .update({ status: "cancelled" })
+        .eq("id", currentOrderId)
+        .eq("status", "scanned");
+
+      if (error) {
+        alert("Failed to cancel order.");
+        console.error(error);
+      } else {
+        foodName.textContent = "Order cancelled successfully.";
+        cancelBtn.style.display = "none";
+      }
+    });
 
     fileInput.addEventListener("change", () => {
       if (!fileInput.files.length) return;
@@ -143,8 +178,3 @@ await supabase
   </script>
 </body>
 </html>
-
-
-
-
-
