@@ -176,25 +176,30 @@
     });
 
     deliverBtn.addEventListener("click", async () => {
-      if (!currentOrderId) return alert("No order scanned yet.");
+  if (!currentOrderId) return alert("No order scanned yet.");
 
-      console.log("Attempting to mark as delivered for ID:", currentOrderId);
+  console.log("Attempting to mark as delivered for ID:", currentOrderId);
 
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: "delivered" })
-        .eq("id", currentOrderId)
-        .in("status", ["scanned", "pending"]);
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ status: "delivered" })
+    .eq("id", currentOrderId)
+    .in("status", ["scanned", "pending"])
+    .select();
 
-      if (error) {
-        alert("❌ Failed to mark as delivered. Check console.");
-        console.error(error);
-      } else {
-        foodName.textContent = "✅ Order marked as delivered!";
-        cancelBtn.style.display = "none";
-        deliverBtn.style.display = "none";
-      }
-    });
+  console.log("Update result:", data, "Error:", error);
+
+  if (error) {
+    alert("❌ Failed to mark as delivered. Check console for details.");
+    console.error(error);
+  } else {
+    alert("✅ Order marked as delivered!");
+    foodName.textContent = "✅ Order marked as delivered!";
+    cancelBtn.style.display = "none";
+    deliverBtn.style.display = "none";
+  }
+});
+
 
     fileInput.addEventListener("change", () => {
       if (!fileInput.files.length) return;
@@ -211,3 +216,4 @@
   </script>
 </body>
 </html>
+
