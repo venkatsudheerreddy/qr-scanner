@@ -42,7 +42,7 @@
       margin: 16px 0;
     }
 
-    .upload-btn, .cancel-btn {
+    .upload-btn, .cancel-btn, .deliver-btn {
       background-color: #6b4eb8;
       color: white;
       border: none;
@@ -54,12 +54,17 @@
       transition: background-color 0.3s ease;
     }
 
-    .upload-btn:hover, .cancel-btn:hover {
+    .upload-btn:hover, .cancel-btn:hover, .deliver-btn:hover {
       background-color: #5a3fa5;
     }
 
     .cancel-btn {
       background-color: #d9534f;
+      display: none;
+    }
+
+    .deliver-btn {
+      background-color: #4CAF50;
       display: none;
     }
 
@@ -79,6 +84,7 @@
   </div>
 
   <button class="upload-btn" id="uploadBtn">Upload QR Image</button>
+  <button class="deliver-btn" id="deliverBtn">Mark as Delivered</button>
   <button class="cancel-btn" id="cancelBtn">Cancel Order</button>
 
   <input type="file" accept="image/*" id="qrInput">
@@ -91,6 +97,7 @@
 
     const uploadBtn = document.getElementById("uploadBtn");
     const cancelBtn = document.getElementById("cancelBtn");
+    const deliverBtn = document.getElementById("deliverBtn");
     const fileInput = document.getElementById("qrInput");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
@@ -112,13 +119,13 @@
       const orderUUID = code.data.trim();
       currentOrderId = orderUUID;
 
-      // 🔹 Notify FlutterFlow via URL change
+      // Notify FlutterFlow
       window.location.href = "flutterflow://scan?orderId=" + orderUUID;
 
-      // 🔹 Fetch order details from Supabase
+      // Fetch order details
       const { data: order, error } = await supabase
         .from("orders")
-        .select("id, food_id, timestamp, menu:food_id(id, name, price, image)")
+        .select("id, food_id, timestamp, status, menu:food_id(id, name, price, image)")
         .eq("id", orderUUID)
         .single();
 
@@ -129,23 +136,27 @@
         return;
       }
 
-      // Show food details
+      // Display food details
       foodName.textContent = order.menu.name;
       foodImage.src = order.menu.image;
 
-      // 🔹 Update order status to 'scanned'
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({ status: "scanned" })
-        .eq("id", orderUUID);
+      // Update status to 'scanned' if not already delivered or cancelled
+      if (order.status !== "delivered" && order.status !== "cancelled") {
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({ status: "scanned" })
+          .eq("id", orderUUID);
 
-      if (updateError) console.error(updateError);
+        if (updateError) console.error(updateError);
 
-      // Show cancel button
-      cancelBtn.style.display = "inline-block";
+        cancelBtn.style.display = "inline-block";
+        deliverBtn.style.display = "inline-block";
+      } else {
+        foodName.textContent = `Order already ${order.status}.`;
+      }
     }
 
-    // Handle Cancel button click
+    // Cancel order
     cancelBtn.addEventListener("click", async () => {
       if (!currentOrderId) return alert("No order scanned yet.");
       const { error } = await supabase
@@ -160,9 +171,34 @@
       } else {
         foodName.textContent = "Order cancelled successfully.";
         cancelBtn.style.display = "none";
+        deliverBtn.style.display = "none";
       }
     });
 
+    // Mark as Delivered
+    deliverBtn.addEventListener("click", async () => {
+      if (!currentOrderId) return alert("No order scanned yet.");
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: "delivered",
+          delivered_at: new Date().toISOString(),
+        })
+        .eq("id", currentOrderId)
+        .eq("status", "scanned");
+
+      if (error) {
+        alert("Failed to mark as delivered.");
+        console.error(error);
+      } else {
+        foodName.textContent = "✅ Order marked as delivered!";
+        cancelBtn.style.display = "none";
+        deliverBtn.style.display = "none";
+      }
+    });
+
+    // File input handler
     fileInput.addEventListener("change", () => {
       if (!fileInput.files.length) return;
       const img = new Image();
