@@ -184,8 +184,8 @@
     .from("orders")
     .update({ status: "delivered" })
     .eq("id", currentOrderId)
-    .in("status", ["scanned", "pending"])
-    .select();
+    .eq("status", "scanned");
+    //.select();
 
   console.log("Update result:", data, "Error:", error);
 
@@ -216,4 +216,5 @@
   </script>
 </body>
 </html>
+
 
