@@ -1,221 +1,193 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Food Item</title>
-  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Lexend', sans-serif;
-      background-color: #faf4ff;
-      color: #1d1b20;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-    }
-
-    .card {
-      background: white;
-      width: 90%;
-      max-width: 400px;
-      border-radius: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      overflow: hidden;
-      text-align: center;
-      padding-bottom: 16px;
-    }
-
-    .food-img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-
-    .food-name {
-      font-size: 18px;
-      font-weight: 600;
-      margin: 16px 0;
-    }
-
-    .btn {
-      background-color: #6b4eb8;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      padding: 12px 24px;
-      font-size: 16px;
-      cursor: pointer;
-      margin-top: 12px;
-      transition: background-color 0.3s ease;
-    }
-
-    .btn:hover {
-      background-color: #5a3fa5;
-    }
-
-    .cancel-btn {
-      background-color: #d9534f;
-      display: none;
-    }
-
-    .deliver-btn {
-      background-color: #4CAF50;
-      display: none;
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    #canvas {
-      display: none;
-    }
-  </style>
+<meta charset="utf-8" />
+<title>QR Camera Debug</title>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body{font-family:Lexend,system-ui;margin:16px;background:#faf4ff;color:#1d1b20}
+  .card{max-width:420px;margin:0 auto;background:#fff;padding:12px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  video{width:100%;border-radius:10px;display:none}
+  #status{margin:8px 0;font-size:14px}
+  .btn{padding:10px 14px;margin:6px;border-radius:10px;border:0;background:#6b4eb8;color:white;cursor:pointer}
+  .hidden{display:none}
+  img.food-img{width:100%;border-radius:8px}
+</style>
 </head>
 <body>
-  <div class="card" id="foodCard">
-    <img class="food-img" id="foodImage" src="https://via.placeholder.com/400x300?text=No+Image" alt="Food">
-    <div class="food-name" id="foodName">Upload QR to view item</div>
+<div class="card">
+  <h3>QR Camera Scanner (debug)</h3>
+  <div id="status">Idle</div>
+  <video id="video" playsinline muted></video>
+  <canvas id="canvas" class="hidden"></canvas>
+
+  <div style="margin-top:10px">
+    <button id="cameraBtn" class="btn">Scan with Camera</button>
+    <button id="stopBtn" class="btn" style="background:#d9534f;display:none">Stop Camera</button>
   </div>
 
-  <button class="btn" id="uploadBtn">Upload QR Image</button>
-  <button class="btn cancel-btn" id="cancelBtn">Cancel Order</button>
-  <button class="btn deliver-btn" id="deliverBtn">Mark as Delivered</button>
+  <div style="margin-top:12px">
+    <img id="foodImage" class="food-img" src="https://via.placeholder.com/400x300?text=No+Image" alt="">
+    <div id="foodName">Upload QR or scan to view</div>
+  </div>
+</div>
 
-  <input type="file" accept="image/*" id="qrInput">
-  <canvas id="canvas"></canvas>
+<script>
+/* CONFIG - update your keys if this is real */
+const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
+const supabase = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  <script>
-    const SUPABASE_URL = "https://ngvoepsrgroxozyjvgyv.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndm9lcHNyZ3JveG96eWp2Z3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NDQ2NTMsImV4cCI6MjA3MjMyMDY1M30.x1zwFyAorfHU-VMYKS_8oVnOi95QUFeRzy0Xkc9zXSI";
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* UI */
+const statusEl = document.getElementById('status');
+const cameraBtn = document.getElementById('cameraBtn');
+const stopBtn = document.getElementById('stopBtn');
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const foodName = document.getElementById('foodName');
+const foodImage = document.getElementById('foodImage');
 
-    const uploadBtn = document.getElementById("uploadBtn");
-    const cancelBtn = document.getElementById("cancelBtn");
-    const deliverBtn = document.getElementById("deliverBtn");
-    const fileInput = document.getElementById("qrInput");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const foodName = document.getElementById("foodName");
-    const foodImage = document.getElementById("foodImage");
+let stream = null;
+let scanning = false;
+let rafId = null;
 
-    let currentOrderId = null;
+function logStatus(msg){
+  console.log('[QR]', msg);
+  statusEl.textContent = msg;
+}
 
-    uploadBtn.addEventListener("click", () => fileInput.click());
+/* Decode helper */
+function decodeImageData(imageData){
+  try{
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    return code ? String(code.data).trim() : null;
+  } catch(e){
+    console.error('jsQR error', e);
+    return null;
+  }
+}
 
-    async function decodeQRCode(imageData) {
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-      if (!code) {
-        foodName.textContent = "Could not decode QR";
-        foodImage.src = "https://via.placeholder.com/400x300?text=Invalid+QR";
-        return;
-      }
+/* Fetch order details (same logic you used) */
+async function fetchOrderDetails(orderUUID){
+  logStatus('Fetching order: ' + orderUUID);
+  try{
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('id, food_id, status, menu:food_id(id, name, price, image)')
+      .eq('id', orderUUID)
+      .single();
 
-      const orderUUID = code.data.trim();
-      currentOrderId = orderUUID;
-
-      console.log("🔹 Scanned Order ID:", orderUUID);
-
-      // Fetch order details
-      const { data: order, error } = await supabase
-        .from("orders")
-        .select("id, food_id, status, menu:food_id(id, name, price, image)")
-        .eq("id", orderUUID)
-        .single();
-
-      if (error || !order) {
-        foodName.textContent = "Invalid QR or not found";
-        foodImage.src = "https://via.placeholder.com/400x300?text=Error";
-        console.error("❌ Fetch error:", error);
-        return;
-      }
-
-      // Show food details
-      foodName.textContent = order.menu.name;
-      foodImage.src = order.menu.image;
-
-      // Update to scanned
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({ status: "scanned" })
-        .eq("id", orderUUID);
-
-      if (updateError) {
-        console.error("❌ Error updating to scanned:", updateError);
-      } else {
-        console.log("✅ Order marked as scanned.");
-      }
-
-      // Show action buttons
-      cancelBtn.style.display = "inline-block";
-      deliverBtn.style.display = "inline-block";
+    console.log('fetchOrderDetails result', order, error);
+    if(error || !order){
+      logStatus('Invalid QR or not found');
+      foodName.textContent = 'Invalid QR or not found';
+      foodImage.src = 'https://via.placeholder.com/400x300?text=Error';
+      return false;
     }
 
-    cancelBtn.addEventListener("click", async () => {
-      if (!currentOrderId) return alert("No order scanned yet.");
+    foodName.textContent = order.menu?.name || 'No name';
+    foodImage.src = order.menu?.image || 'https://via.placeholder.com/400x300?text=No+Image';
 
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: "cancelled" })
-        .eq("id", currentOrderId)
-        .eq("status", "scanned");
+    // update scanned status (non-blocking)
+    supabase.from('orders').update({ status: 'scanned' }).eq('id', orderUUID)
+      .then(res => console.log('scanned update', res)).catch(e=>console.error(e));
 
-      if (error) {
-        alert("❌ Failed to cancel order. Check console.");
-        console.error(error);
-      } else {
-        foodName.textContent = "Order cancelled successfully.";
-        cancelBtn.style.display = "none";
-        deliverBtn.style.display = "none";
-      }
-    });
-
-    deliverBtn.addEventListener("click", async () => {
-  if (!currentOrderId) return alert("No order scanned yet.");
-
-  console.log("Attempting to mark as delivered for ID:", currentOrderId);
-
-  const { data, error } = await supabase
-    .from("orders")
-    .update({ status: "delivered" })
-    .eq("id", currentOrderId)
-    .eq("status", "scanned");
-    //.select();
-
-  console.log("Update result:", data, "Error:", error);
-
-  if (error) {
-    alert("❌ Failed to mark as delivered. Check console for details.");
-    console.error(error);
-  } else {
-    //alert("✅ Order marked as delivered!");
-    foodName.textContent = "✅ Order marked as delivered!";
-    cancelBtn.style.display = "none";
-    deliverBtn.style.display = "none";
+    logStatus('Order loaded: ' + orderUUID);
+    return true;
+  } catch (err){
+    console.error('fetchOrderDetails exception', err);
+    logStatus('Error fetching order (see console)');
+    return false;
   }
-});
+}
 
+/* Camera loop */
+async function scanLoop(){
+  if(!scanning) return;
+  if(video.readyState < 2){
+    // try again when video is ready
+    rafId = requestAnimationFrame(scanLoop);
+    return;
+  }
 
-    fileInput.addEventListener("change", () => {
-      if (!fileInput.files.length) return;
-      const img = new Image();
-      img.src = URL.createObjectURL(fileInput.files[0]);
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, img.width, img.height);
-        decodeQRCode(imageData);
-      };
+  try{
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const qr = decodeImageData(imageData);
+    if(qr){
+      logStatus('QR found: ' + qr);
+      stopCamera();
+      const ok = await fetchOrderDetails(qr);
+      if(!ok) logStatus('Scanned but no matching order');
+      return;
+    }
+  } catch(e){
+    console.error('scanLoop error', e);
+  }
+  rafId = requestAnimationFrame(scanLoop);
+}
+
+/* Start camera */
+async function startCamera(){
+  logStatus('Requesting camera...');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    alert('Camera API not supported in this browser.');
+    logStatus('Camera API not supported');
+    return;
+  }
+
+  // prefer rear camera
+  const constraints = { video: { facingMode: { ideal: "environment" }, width: {ideal:1280}, height: {ideal:720} }, audio: false };
+
+  try{
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    // iOS Safari requires play() and playsinline attribute
+    await video.play().catch(e => {
+      console.warn('video.play() failed', e);
     });
-  </script>
+    video.style.display = 'block';
+    cameraBtn.style.display = 'none';
+    stopBtn.style.display = 'inline-block';
+    scanning = true;
+    logStatus('Scanning — point your camera at a QR');
+    rafId = requestAnimationFrame(scanLoop);
+  } catch(err){
+    console.error('getUserMedia error', err);
+    logStatus('Camera access denied or not available');
+    alert('Camera access denied or not available. See console for details.');
+  }
+}
+
+/* Stop camera */
+function stopCamera(){
+  scanning = false;
+  cameraBtn.style.display = 'inline-block';
+  stopBtn.style.display = 'none';
+  video.style.display = 'none';
+  if(stream){
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  if(rafId) cancelAnimationFrame(rafId);
+  logStatus('Camera stopped');
+}
+
+/* Hooks */
+cameraBtn.addEventListener('click', startCamera);
+stopBtn.addEventListener('click', stopCamera);
+
+/* Safety: if user navigates away, stop camera */
+window.addEventListener('pagehide', stopCamera);
+window.addEventListener('beforeunload', stopCamera);
+
+/* Helpful console hint for debugging */
+console.log('Debug: page loaded. Serve over HTTPS. Open DevTools (Console) for logs.');
+</script>
 </body>
 </html>
-
-
-
